@@ -1,0 +1,31 @@
+name: Development_environment_deployment
+
+on:
+  pull_request:
+    types: 
+      - closed
+    
+jobs:
+  build:
+    if: github.event.pull_request.base.ref == 'dev' && github.event.pull_request.merged == true
+    runs-on: back-dev
+    
+    defaults:
+      run:
+        working-directory: /home/ubuntu/swordpay-backend
+    
+    steps:
+    - name: Deploy
+      run: |
+        git clean -f
+        git pull
+        npm i
+        npm run build
+        npm run migration:generate migrate
+        npm run migration:up
+        pm2 restart all
+        curl -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage -d chat_id=${{ secrets.TELEGRAM_TO }} -d text='Backend deployment was successful'
+    - name: check
+      if: ${{ failure() }}
+      run: curl -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage -d chat_id=${{ secrets.TELEGRAM_TO }} -d text='Backend deployment failed'
+      
